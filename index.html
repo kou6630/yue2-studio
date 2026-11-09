@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#160f20" />
+    <meta
+      name="description"
+      content="紫音はYuE2で歌、BGM、楽譜を作るリモート音楽スタジオです。"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self' https://*.trycloudflare.com; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src blob:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>紫音 SHION — 音楽スタジオ</title>
+    <link rel="icon" href="mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="abcjs.min.js"></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-spark" viewBox="0 0 24 24">
+        <path
+          d="M12 3l2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7L12 3z"
+        />
+      </symbol>
+      <symbol id="i-note" viewBox="0 0 24 24">
+        <path d="M9 18V5l12-2v13M9 9l12-2" />
+        <ellipse cx="6" cy="18" rx="3" ry="2" />
+        <ellipse cx="18" cy="16" rx="3" ry="2" />
+      </symbol>
+      <symbol id="i-score" viewBox="0 0 24 24">
+        <path d="M4 6h16M4 11h16M4 16h16m-7 2V8l5-1v9" />
+        <ellipse cx="11" cy="18" rx="2" ry="1.5" />
+      </symbol>
+      <symbol id="i-cover" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 1 4 7.5M3 12V5m0 7h7" />
+        <path d="M13 14v-5l4-1v5" />
+        <circle cx="12" cy="15" r="1.5" />
+      </symbol>
+      <symbol id="i-wave" viewBox="0 0 24 24">
+        <path d="M3 10v4m4-7v10m5-14v18m5-14v10m4-7v4" />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M4 12h15m-6-6 6 6-6 6" />
+      </symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24">
+        <path d="M12 16V4m-5 5 5-5 5 5M4 15v5h16v-5" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="5" y="10" width="14" height="11" rx="3" />
+        <path d="M8 10V7a4 4 0 1 1 8 0v3m-4 5v2" />
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 24 24">
+        <path d="M8 5l12 7-12 7V5z" />
+      </symbol>
+    </svg>
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="./" aria-label="紫音 トップ"
+          ><img src="mark.svg" alt="" width="44" height="44" /><span
+            >紫音<strong>SHION STUDIO</strong></span
+          ></a
+        >
+        <div class="top-actions">
+          <span id="connection" class="status"
+            ><i></i><span>接続を確認中</span></span
+          >
+          <button id="logout" class="button plain" type="button" hidden>
+            ログアウト
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="gate" class="gate wrap">
+      <section class="gate-panel">
+        <div class="gate-art" aria-hidden="true">
+          <div class="disc"><span></span></div>
+          <div class="orbit orbit-a"></div>
+          <div class="orbit orbit-b"></div>
+          <span class="art-index">A / 01</span>
+        </div>
+        <div class="gate-content">
+          <p class="eyebrow">PRIVATE MUSIC STUDIO</p>
+          <h1>紫音スタジオ</h1>
+          <p class="lede">パスワードを入力して、曲づくりを始める。</p>
+          <form id="login-form">
+            <label for="password">スタジオパスワード</label>
+            <input
+              id="password"
+              type="password"
+              required
+              autocomplete="current-password"
+              placeholder="パスワードを入力"
+              maxlength="256"
+            />
+            <p id="login-error" class="error" role="alert" hidden></p>
+            <button id="login-submit" class="button primary full" type="submit">
+              <svg><use href="#i-lock" /></svg>スタジオに入る<svg
+                class="right-icon"
+              >
+                <use href="#i-arrow" />
+              </svg>
+            </button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <main id="studio" class="wrap" hidden>
+      <section class="studio-hero">
+        <div>
+          <p class="eyebrow">
+            <svg><use href="#i-wave" /></svg> YUE2 MUSIC STUDIO
+          </p>
+          <h1>曲をつくる</h1>
+          <p>イメージ、歌詞、コード。好きなところから。</p>
+        </div>
+        <svg
+          class="hero-wave"
+          viewBox="0 0 440 150"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id="wave-gradient">
+              <stop stop-color="#ff86b8" stop-opacity="0" />
+              <stop offset=".6" stop-color="#f7a0d8" />
+              <stop offset="1" stop-color="#c7a2ff" stop-opacity=".1" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M0 78Q18 76 30 78T65 78 100 78 130 72 160 84 190 58 216 91 240 47 264 104 288 26 309 127 332 38 353 103 375 56 396 91 418 69 440 78M0 78Q80 84 122 78T200 75 238 89 266 64 293 98 320 55 346 101 369 61 392 90 414 72 440 78M0 78Q74 73 120 78T181 80 212 71 241 86 266 61 291 105 316 51 342 99 365 64 387 86 410 72 440 78"
+            fill="none"
+            stroke="url(#wave-gradient)"
+            stroke-width="1.5"
+          />
+        </svg>
+      </section>
+      <div class="studio-grid">
+        <section class="panel workspace" aria-labelledby="workspace-title">
+          <nav class="modes" aria-label="制作モード">
+            <button
+              class="tab active"
+              data-tab="create"
+              type="button"
+              aria-pressed="true"
+            >
+              <svg><use href="#i-note" /></svg>作曲
+            </button>
+            <button
+              class="tab"
+              data-tab="cover"
+              type="button"
+              aria-pressed="false"
+            >
+              <svg><use href="#i-cover" /></svg>カバー
+            </button>
+            <button
+              class="tab"
+              data-tab="abc"
+              type="button"
+              aria-pressed="false"
+            >
+              <svg><use href="#i-score" /></svg>楽譜
+            </button>
+            <button
+              class="tab"
+              data-tab="edit"
+              type="button"
+              aria-pressed="false"
+            >
+              <svg><use href="#i-spark" /></svg>AI編集
+            </button>
+          </nav>
+          <form id="song-form" class="workspace-body">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow" id="workspace-kicker">01 / CREATE</p>
+                <h2 id="workspace-title">作曲</h2>
+              </div>
+              <span class="format-chip">48 kHz <span>STEREO</span></span>
+            </div>
+            <div id="sources" class="switch" aria-label="作曲の入力">
+              <button
+                type="button"
+                data-source="prompt"
+                class="active"
+                aria-pressed="true"
+              >
+                プロンプト
+              </button>
+              <button type="button" data-source="lyrics" aria-pressed="false">
+                歌詞
+              </button>
+              <button type="button" data-source="chords" aria-pressed="false">
+                コード進行
+              </button>
+            </div>
+            <div id="edit-field" class="field" hidden>
+              <label for="instruction">変更したいこと</label
+              ><textarea
+                id="instruction"
+                maxlength="1400"
+                rows="3"
+                placeholder="もう少しゆったり。サビを明るくして、ピアノを前に。"
+              ></textarea>
+            </div>
+            <div id="cover-field" class="field" hidden>
+              <label for="source-audio">元の音源</label>
+              <label class="file-control" for="source-audio"
+                ><svg><use href="#i-upload" /></svg
+                ><span id="audio-label">音源を選択</span
+                ><span class="file-limit">32 MBまで</span></label
+              >
+              <input
+                id="source-audio"
+                type="file"
+                class="visually-hidden"
+                accept="audio/*,.mp3,.m4a,.wav,.flac,.ogg,.opus,.aac"
+              />
+            </div>
+            <div class="field">
+              <label for="style" id="style-label">曲のイメージ</label
+              ><textarea
+                id="style"
+                maxlength="1400"
+                rows="3"
+                placeholder="夜明けの街を歩く、透明感のあるピアノポップ。"
+              ></textarea>
+            </div>
+            <div id="chord-field" class="field" hidden>
+              <label for="chords">コード進行</label>
+              <div class="row">
+                <input
+                  id="chords"
+                  maxlength="220"
+                  placeholder="Am7 Fmaj7 C G7"
+                /><label class="tempo" for="bpm"
+                  ><input
+                    id="bpm"
+                    type="number"
+                    min="45"
+                    max="210"
+                    value="92"
+                  /><span>BPM</span></label
+                >
+              </div>
+            </div>
+            <div id="lyrics-field" class="field" hidden>
+              <label for="lyrics"
+                >歌詞 <span class="optional" id="lyric-note">任意</span></label
+              ><textarea
+                id="lyrics"
+                maxlength="9000"
+                rows="6"
+                placeholder="[Verse]&#10;朝の光が差し込んで&#10;&#10;[Chorus]&#10;新しい空へ歩き出す"
+              ></textarea>
+            </div>
+            <div id="abc-field" class="field" hidden>
+              <div class="label-row">
+                <label for="abc">ABC楽譜</label
+                ><button type="button" id="export-abc" class="button plain">
+                  ABC保存
+                </button>
+              </div>
+              <textarea
+                id="abc"
+                class="code"
+                maxlength="26000"
+                rows="8"
+                spellcheck="false"
+                placeholder='X:1&#10;M:4/4&#10;L:1/8&#10;K:C&#10;"C"C2 E2 G2 E2 | "G"D2 G2 B2 G2 |'
+              ></textarea>
+              <div id="notation" class="notation" hidden></div>
+            </div>
+            <div id="render-options" class="render-options">
+              <div class="field">
+                <span class="label">音の種類</span>
+                <div class="switch tone" aria-label="音の種類">
+                  <button
+                    class="active"
+                    type="button"
+                    data-tone="vocal"
+                    aria-pressed="true"
+                  >
+                    ボーカル</button
+                  ><button
+                    type="button"
+                    data-tone="instrumental"
+                    aria-pressed="false"
+                  >
+                    BGM
+                  </button>
+                </div>
+              </div>
+              <div class="field duration">
+                <label for="seconds">曲の長さ</label
+                ><select id="seconds">
+                  <option value="30">30秒</option>
+                  <option value="60" selected>1分</option>
+                  <option value="120">2分</option>
+                  <option value="180">3分</option>
+                </select>
+              </div>
+            </div>
+            <p id="form-error" class="error" role="alert" hidden></p>
+            <button
+              id="submit-song"
+              class="button primary full make"
+              type="submit"
+            >
+              <svg><use href="#i-spark" /></svg
+              ><span id="submit-label">曲を生成</span
+              ><svg class="right-icon"><use href="#i-arrow" /></svg>
+            </button>
+          </form>
+        </section>
+        <aside class="panel library" aria-labelledby="library-title">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">02 / SESSION</p>
+              <h2 id="library-title">制作した曲</h2>
+            </div>
+            <span class="badge-icon"
+              ><svg><use href="#i-wave" /></svg
+            ></span>
+          </div>
+          <div id="current" class="current" aria-live="polite" hidden></div>
+          <ul id="jobs" class="jobs"></ul>
+          <div id="empty" class="empty">
+            <img src="mark.svg" width="45" height="45" alt="" />
+            <p>ここに曲が並びます</p>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <footer class="wrap footer">
+      <span>SHION</span><span>YuE2 · 48 kHz Stereo</span>
+    </footer>
+  </body>
+</html>
