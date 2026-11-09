@@ -2,7 +2,7 @@ const byId = (id) => document.getElementById(id);
 const tabs = [...document.querySelectorAll("[data-tab]")];
 const tones = [...document.querySelectorAll("[data-tone]")];
 const sessionKey = "shion-studio-session";
-const durationChoices = [30, 60, 120, 180];
+const durationChoices = [0, 30, 60, 120, 180];
 const genreLabels = {
   jpop: "J-POP",
   pop: "ポップ",
@@ -535,7 +535,10 @@ function openDraft(job, next) {
     result.lyrics === "[instrumental]" ? "" : result.lyrics || "";
   byId("abc").value = result.abc || "";
   deliveryChoices = deliveryMap(job.section_deliveries);
-  if (next === "edit") editSourceVisible = false;
+  if (next === "edit") {
+    editSourceVisible = false;
+    byId("instruction").value = "";
+  }
   if (next === "create") {
     byId("create-vocal").value = job.instrumental ? "instrumental" : "vocal";
     byId("create-lyrics-source").value = byId("lyrics").value
@@ -883,6 +886,7 @@ function renderCreation(panel, job) {
   const list = document.createElement("dl");
   const bpm = settings.resolved_bpm ?? settings.bpm;
   const rows = [
+    ["曲の長さ", job.seconds === 0 ? "おまかせ" : ""],
     [
       "歌詞",
       { vocal: "あり", instrumental: "なし（BGM）", auto: "おまかせ" }[
@@ -950,6 +954,11 @@ function renderCurrent(job) {
   panel.append(title, stage);
   renderLineage(panel, job.lineage);
   renderCreation(panel, job);
+  if (Number.isInteger(job.result?.vocal_count)) {
+    const voice = document.createElement("p");
+    voice.textContent = `ボーカル指定　${job.result.vocal_count}人`;
+    panel.append(voice);
+  }
   if (job.section_deliveries?.length) {
     const delivery = document.createElement("p");
     delivery.textContent = `歌い方　${job.section_deliveries
@@ -1250,6 +1259,7 @@ byId("song-form").addEventListener("submit", async (event) => {
       body.append("audio", file);
     }
     await queueJob(body);
+    if (mode === "edit") byId("instruction").value = "";
     if (!job.parent_id) byId("song-title").value = "";
   } catch (error) {
     message("form-error", error.message);

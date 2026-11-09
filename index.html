@@ -17,9 +17,9 @@
     />
     <title>紫音 SHION — 音楽スタジオ</title>
     <link rel="icon" href="mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=delete-tracks" />
+    <link rel="stylesheet" href="styles.css?v=auto-length" />
     <script defer src="abcjs.min.js"></script>
-    <script type="module" src="app.js?v=delete-tracks"></script>
+    <script type="module" src="app.js?v=auto-length"></script>
   </head>
   <body>
     <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -431,8 +431,9 @@
               <div id="duration-field" class="field duration">
                 <label for="seconds">曲の長さ</label
                 ><select id="seconds">
+                  <option value="0" selected>おまかせ</option>
                   <option value="30">30秒</option>
-                  <option value="60" selected>1分</option>
+                  <option value="60">1分</option>
                   <option value="120">2分</option>
                   <option value="180">3分</option>
                 </select>
