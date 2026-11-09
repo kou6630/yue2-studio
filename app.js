@@ -10,6 +10,7 @@ let tab = "create";
 let source = "prompt";
 let instrumental = false;
 let editSourceVisible = false;
+let draftParent = null;
 let selectedJob = "";
 let jobs = [];
 let visibleJob = "";
@@ -106,6 +107,7 @@ function signOut(note = "") {
   byId("empty").hidden = false;
   if (playerUrl) URL.revokeObjectURL(playerUrl);
   playerUrl = "";
+  draftParent = null;
   selectedJob = "";
   visibleJob = "";
   jobs = [];
@@ -125,7 +127,8 @@ function setPressed(buttons, attribute, value) {
   }
 }
 
-function setTab(next) {
+function setTab(next, parent = null) {
+  if (next !== tab || parent) draftParent = parent;
   if (next === "edit" && tab !== "edit") {
     editSourceVisible = !["style", "lyrics", "abc"].some((id) =>
       byId(id).value.trim(),
@@ -137,6 +140,7 @@ function setTab(next) {
 }
 
 function setSource(next) {
+  if (next === "chords") draftParent = null;
   source = next;
   setPressed(sources, "source", source);
   syncFields();
@@ -161,6 +165,7 @@ function syncFields() {
   byId("workspace-title").textContent = title;
   byId("style-label").textContent = style;
   byId("submit-label").textContent = submit;
+  message("draft-source", draftParent ? `編集元　${draftParent.title}` : "");
   byId("style").placeholder =
     tab === "cover"
       ? "アコースティックなボサノバに。軽いギターと柔らかいベース。"
@@ -271,7 +276,7 @@ function openDraft(job, next) {
   if (durationChoices.includes(job.seconds))
     byId("seconds").value = String(job.seconds);
   setTone(job.instrumental);
-  setTab(next);
+  setTab(next, job);
   byId("workspace-title").scrollIntoView({
     behavior: "smooth",
     block: "start",
@@ -315,11 +320,20 @@ function renderJobs() {
     const name = document.createElement("span");
     name.className = "job-name";
     name.textContent = job.title;
+    const label = document.createElement("span");
+    label.className = "job-label";
+    label.append(name);
+    if (job.lineage?.source) {
+      const origin = document.createElement("span");
+      origin.className = "job-origin";
+      origin.textContent = `${job.mode === "edit" ? "AI編集" : "再生成"} · ${job.lineage.source.title}`;
+      label.append(origin);
+    }
     const state = document.createElement("span");
     state.className = "job-state";
     state.textContent =
       job.status === "done" ? (job.has_audio ? "FLAC" : "下書き") : job.stage;
-    button.append(name, state);
+    button.append(label, state);
     button.onclick = () => {
       selectedJob = job.id;
       renderJobs();
@@ -329,6 +343,73 @@ function renderJobs() {
     if (active === job.id) button.focus({ preventScroll: true });
   }
   renderCurrent(jobs.find((job) => job.id === selectedJob));
+}
+
+async function selectRelatedJob(id) {
+  if (!jobs.some((job) => job.id === id))
+    jobs.push(await api(`/api/jobs/${id}`));
+  selectedJob = id;
+  renderJobs();
+}
+
+function renderLineage(panel, lineage) {
+  if (!lineage) return;
+  const details = document.createElement("dl");
+  details.className = "lineage";
+
+  function row(label, value) {
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const content = document.createElement("dd");
+    content.append(value);
+    details.append(term, content);
+  }
+
+  function related(label, job) {
+    const button = action(job.title, () => selectRelatedJob(job.id));
+    button.className = "lineage-link";
+    row(label, button);
+  }
+
+  if (lineage.source)
+    related(
+      lineage.source.mode === "edit" ? "元の下書き" : "元の曲",
+      lineage.source,
+    );
+  if (lineage.parent && lineage.parent.id !== lineage.source?.id)
+    related(
+      lineage.parent.mode === "edit" ? "使った下書き" : "直前の曲",
+      lineage.parent,
+    );
+  if (lineage.instruction) row("AI編集の指示", lineage.instruction);
+  const labels = { style: "曲調", lyrics: "歌詞", abc: "楽譜" };
+  if (lineage.changes?.length) {
+    row("変更点", lineage.changes.map((key) => labels[key]).join("・"));
+  }
+  if (details.childElementCount) panel.append(details);
+  if (lineage.style_after) {
+    const comparison = document.createElement("details");
+    comparison.className = "style-comparison";
+    const summary = document.createElement("summary");
+    summary.textContent = "曲調の変更前・変更後";
+    comparison.append(summary);
+    for (const [label, text] of [
+      ["変更前", lineage.style_before],
+      ["変更後", lineage.style_after],
+    ]) {
+      if (!text) continue;
+      const line = document.createElement("p");
+      const heading = document.createElement("strong");
+      heading.textContent = label;
+      line.append(heading, ` ${text}`);
+      comparison.append(line);
+    }
+    panel.append(comparison);
+  }
+}
+
+function relatedTitle(job, suffix) {
+  return `${(job.lineage?.source?.title || job.title).slice(0, 70)}（${suffix}）`;
 }
 
 function renderCurrent(job) {
@@ -349,6 +430,7 @@ function renderCurrent(job) {
   const stage = document.createElement("p");
   stage.textContent = job.error || job.stage;
   panel.append(title, stage);
+  renderLineage(panel, job.lineage);
   if (job.status === "running" || job.status === "queued") {
     const progress = document.createElement("progress");
     progress.max = 100;
@@ -389,10 +471,11 @@ function renderCurrent(job) {
         const { style, lyrics, abc } = job.result;
         return queueJob({
           mode: abc ? "abc" : lyrics ? "lyrics" : "prompt",
-          title: `${job.title.slice(0, 72)}（再生成）`,
+          title: relatedTitle(job, "編集後"),
           style,
           lyrics,
           abc,
+          parent_id: job.id,
           instrumental: job.instrumental,
           seconds: job.seconds,
           seed: job.seed,
@@ -430,7 +513,10 @@ async function refresh() {
   try {
     const result = await api("/api/jobs");
     if (token !== startedWith) return;
+    const previous = jobs.find((job) => job.id === selectedJob);
     jobs = result.jobs;
+    if (previous && !jobs.some((job) => job.id === previous.id))
+      jobs.push(previous);
     if (!selectedJob && jobs.length) selectedJob = jobs[0].id;
     signIn();
     renderJobs();
@@ -514,7 +600,10 @@ byId("song-form").addEventListener("submit", async (event) => {
     style,
     instruction,
     instrumental,
-    title: (mode === "edit" ? instruction : style).slice(0, 36),
+    title: draftParent
+      ? relatedTitle(draftParent, mode === "edit" ? "AI編集" : "再生成")
+      : (mode === "edit" ? instruction : style).slice(0, 36),
+    parent_id: draftParent?.id || "",
     lyrics:
       mode === "edit" || !byId("lyrics-field").hidden
         ? byId("lyrics").value
