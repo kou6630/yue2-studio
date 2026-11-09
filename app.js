@@ -676,7 +676,7 @@ function renderCreation(panel, job) {
   const settings = job.creation;
   if (!settings) return;
   const details = document.createElement("details");
-  details.className = "lineage";
+  details.className = "creation-summary";
   const summary = document.createElement("summary");
   summary.textContent = "作曲の指定";
   const list = document.createElement("dl");

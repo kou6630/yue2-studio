@@ -755,6 +755,7 @@ textarea::placeholder {
 }
 .draft-source,
 .lineage,
+.creation-summary,
 .style-comparison {
   border: 1px solid #694268;
   border-radius: 10px;
@@ -767,17 +768,27 @@ textarea::placeholder {
   color: #f0c2e6;
   background: #2e203a;
 }
-.lineage {
+.lineage,
+.creation-summary dl {
   display: grid;
   grid-template-columns: minmax(0, auto) minmax(0, 1fr);
   gap: 7px 10px;
   margin: 10px 0 0;
+}
+.lineage,
+.creation-summary {
+  margin-top: 10px;
   background: #281a33;
 }
-.lineage dt {
+.creation-summary summary {
+  cursor: pointer;
+}
+.lineage dt,
+.creation-summary dt {
   color: var(--muted);
 }
-.lineage dd {
+.lineage dd,
+.creation-summary dd {
   margin: 0;
   min-width: 0;
 }
