@@ -67,6 +67,9 @@ let editSourceVisible = false;
 let draftParent = null;
 let selectedJob = "";
 let jobs = [];
+let currentJob = null;
+let libraryLoaded = false;
+let visibleLibrary = "";
 let visibleJob = "";
 let playerUrl = "";
 let notationTimer;
@@ -156,13 +159,20 @@ function signOut(note = "") {
   byId("studio").hidden = true;
   byId("logout").hidden = true;
   byId("current").replaceChildren();
-  byId("jobs").replaceChildren();
-  byId("current").hidden = true;
+  const list = byId("jobs");
+  const current = byId("current");
+  list.before(current);
+  list.replaceChildren();
+  current.hidden = true;
+  current.replaceChildren();
   byId("empty").hidden = false;
   if (playerUrl) URL.revokeObjectURL(playerUrl);
   playerUrl = "";
   draftParent = null;
   selectedJob = "";
+  currentJob = null;
+  libraryLoaded = false;
+  visibleLibrary = "";
   visibleJob = "";
   jobs = [];
   deliveryChoices.clear();
@@ -297,7 +307,11 @@ function syncFields() {
   byId("workspace-title").textContent = title;
   byId("style-label").textContent = style;
   byId("submit-label").textContent = submit;
-  message("draft-source", draftParent ? `編集元　${draftParent.title}` : "");
+  message(
+    "draft-source",
+    draftParent ? `編集元　${songTitle(draftParent)}` : "",
+  );
+  byId("title-field").hidden = Boolean(draftParent);
   byId("style").placeholder =
     tab === "cover"
       ? "アコースティックなボサノバに。軽いギターと柔らかいベース。"
@@ -561,50 +575,165 @@ function action(text, callback) {
   return button;
 }
 
+function songId(job) {
+  return job.song_id || job.lineage?.source?.id || job.id;
+}
+
+function songTitle(job) {
+  return job.song_title || job.lineage?.source?.title || job.title;
+}
+
+function jobState(job) {
+  return job.status === "done"
+    ? job.has_audio
+      ? "FLAC"
+      : "下書き"
+    : job.stage;
+}
+
+function versionLabel(job) {
+  if (job.mode === "edit") return "AI編集の下書き";
+  return job.id === songId(job) ? "元の曲" : "再生成";
+}
+
+function libraryButton(name, state) {
+  const button = document.createElement("button");
+  button.type = "button";
+  const label = document.createElement("span");
+  label.className = "job-label";
+  const title = document.createElement("span");
+  title.className = "job-name";
+  title.textContent = name;
+  label.append(title);
+  const badge = document.createElement("span");
+  badge.className = "job-state";
+  badge.textContent = state;
+  button.append(label, badge);
+  return button;
+}
+
+function versionHistory(group, open) {
+  const history = document.createElement("details");
+  history.className = "version-history";
+  history.open = open;
+  const summary = document.createElement("summary");
+  summary.textContent = `編集・再生成の履歴（${group.length}件）`;
+  summary.dataset.libraryKey = "history";
+  const versions = document.createElement("ul");
+  versions.className = "version-list";
+  group.forEach((job, index) => {
+    const row = document.createElement("li");
+    const button = libraryButton(
+      `v${group.length - index} · ${versionLabel(job)}`,
+      jobState(job),
+    );
+    button.dataset.libraryKey = job.id;
+    if (job.id === selectedJob) {
+      button.classList.add("selected");
+      button.setAttribute("aria-current", "true");
+    }
+    const instruction =
+      job.mode === "edit" && (job.instruction || job.lineage?.instruction);
+    if (instruction) {
+      const note = document.createElement("span");
+      note.className = "job-origin";
+      note.textContent = instruction;
+      button.firstElementChild.append(note);
+    }
+    button.onclick = () => selectJob(job);
+    row.append(button);
+    versions.append(row);
+  });
+  history.append(summary, versions);
+  return history;
+}
+
 function renderJobs() {
   const list = byId("jobs");
-  const active = document.activeElement?.dataset?.job;
-  list.replaceChildren();
-  byId("empty").hidden = jobs.length > 0;
-  for (const job of jobs) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.job = job.id;
-    button.classList.toggle("selected", job.id === selectedJob);
-    const name = document.createElement("span");
-    name.className = "job-name";
-    name.textContent = job.title;
-    const label = document.createElement("span");
-    label.className = "job-label";
-    label.append(name);
-    if (job.lineage?.source) {
-      const origin = document.createElement("span");
-      origin.className = "job-origin";
-      origin.textContent = `${job.mode === "edit" ? "AI編集" : "再生成"} · ${job.lineage.source.title}`;
-      label.append(origin);
+  const current = byId("current");
+  const signature = JSON.stringify([
+    selectedJob,
+    jobs.map((job) => [
+      job.id,
+      songId(job),
+      songTitle(job),
+      job.status,
+      job.stage,
+      job.has_audio,
+    ]),
+  ]);
+  if (visibleLibrary !== signature) {
+    visibleLibrary = signature;
+    const active = document.activeElement?.dataset.libraryKey;
+    const selected = jobs.find((job) => job.id === selectedJob);
+    const previous = current.closest(".song-group");
+    const keepHistory =
+      selected &&
+      previous?.dataset.song === songId(selected) &&
+      previous.querySelector(".version-history")?.open;
+    list.before(current);
+    list.replaceChildren();
+    byId("empty").hidden = jobs.length > 0;
+    const groups = new Map();
+    for (const job of jobs) {
+      const id = songId(job);
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(job);
     }
-    const state = document.createElement("span");
-    state.className = "job-state";
-    state.textContent =
-      job.status === "done" ? (job.has_audio ? "FLAC" : "下書き") : job.stage;
-    button.append(label, state);
-    button.onclick = () => {
-      selectedJob = job.id;
-      renderJobs();
-    };
-    item.append(button);
-    list.append(item);
-    if (active === job.id) button.focus({ preventScroll: true });
+    for (const [id, group] of groups) {
+      const latest = group[0];
+      const opened = selected && songId(selected) === id;
+      const item = document.createElement("li");
+      item.className = "song-group";
+      item.dataset.song = id;
+      const button = libraryButton(
+        songTitle(latest),
+        group.length > 1 ? `${group.length}件` : jobState(latest),
+      );
+      button.className = opened ? "song-toggle selected" : "song-toggle";
+      button.dataset.libraryKey = `song-${id}`;
+      button.setAttribute("aria-expanded", String(Boolean(opened)));
+      button.onclick = () => selectJob(opened ? null : latest);
+      item.append(button);
+      if (opened) {
+        if (group.length > 1) item.append(versionHistory(group, keepHistory));
+        item.append(current);
+      }
+      list.append(item);
+    }
+    if (active)
+      list
+        .querySelector(`[data-library-key="${CSS.escape(active)}"]`)
+        ?.focus({ preventScroll: true });
   }
-  renderCurrent(jobs.find((job) => job.id === selectedJob));
+  renderCurrent(currentJob);
+}
+
+async function loadSelectedJob() {
+  const id = selectedJob;
+  const session = token;
+  const job = await api(`/api/jobs/${id}`);
+  if (selectedJob === id && token === session) {
+    currentJob = job;
+    renderJobs();
+  }
+}
+
+function selectJob(job) {
+  if ((job?.id || "") === selectedJob) return;
+  selectedJob = job?.id || "";
+  currentJob = job;
+  renderJobs();
+  if (job?.status === "done" && !job.result) loadSelectedJob().catch(() => {});
 }
 
 async function selectRelatedJob(id) {
-  if (!jobs.some((job) => job.id === id))
-    jobs.push(await api(`/api/jobs/${id}`));
-  selectedJob = id;
-  renderJobs();
+  let job = jobs.find((item) => item.id === id);
+  if (!job) {
+    job = await api(`/api/jobs/${id}`);
+    if (!jobs.some((item) => item.id === id)) jobs.push(job);
+  }
+  selectJob(job);
 }
 
 function renderLineage(panel, lineage) {
@@ -669,7 +798,7 @@ function renderLineage(panel, lineage) {
 }
 
 function relatedTitle(job, suffix) {
-  return `${(job.lineage?.source?.title || job.title).slice(0, 70)}（${suffix}）`;
+  return `${songTitle(job).slice(0, 70)}（${suffix}）`;
 }
 
 function renderCreation(panel, job) {
@@ -714,10 +843,21 @@ function renderCreation(panel, job) {
 function renderCurrent(job) {
   const panel = byId("current");
   if (!job) {
+    if (playerUrl) URL.revokeObjectURL(playerUrl);
+    playerUrl = "";
+    visibleJob = "";
     panel.hidden = true;
+    panel.replaceChildren();
     return;
   }
-  const signature = [job.id, job.status, job.stage, job.progress].join("|");
+  const signature = [
+    job.id,
+    job.status,
+    job.stage,
+    job.progress,
+    job.error,
+    Boolean(job.result),
+  ].join("|");
   if (visibleJob === signature) return;
   if (playerUrl) URL.revokeObjectURL(playerUrl);
   playerUrl = "";
@@ -725,9 +865,12 @@ function renderCurrent(job) {
   panel.hidden = false;
   panel.replaceChildren();
   const title = document.createElement("h3");
-  title.textContent = job.title;
+  title.textContent = songTitle(job);
   const stage = document.createElement("p");
-  stage.textContent = job.error || job.stage;
+  stage.textContent =
+    songId(job) === job.id
+      ? job.error || job.stage
+      : `${versionLabel(job)} · ${job.error || job.stage}`;
   panel.append(title, stage);
   renderLineage(panel, job.lineage);
   renderCreation(panel, job);
@@ -748,7 +891,7 @@ function renderCurrent(job) {
     if (Number.isFinite(job.progress)) progress.value = job.progress;
     panel.append(progress);
   }
-  if (job.status !== "done") return;
+  if (job.status !== "done" || !job.result) return;
   const actions = document.createElement("div");
   actions.className = "actions";
   const audio = document.createElement("audio");
@@ -808,7 +951,8 @@ function renderCurrent(job) {
 async function queueJob(body) {
   const created = await api("/api/jobs", { body, timeout: 120000 });
   selectedJob = created.id;
-  jobs = [created, ...jobs].slice(0, 24);
+  currentJob = created;
+  jobs = [created, ...jobs.filter((job) => job.id !== created.id)];
   renderJobs();
   if (matchMedia("(max-width: 820px)").matches)
     byId("current").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -819,15 +963,20 @@ async function refresh() {
   const startedWith = token;
   refreshing = true;
   try {
-    const result = await api("/api/jobs");
+    const result = await api("/api/jobs?view=library");
     if (token !== startedWith) return;
-    const previous = jobs.find((job) => job.id === selectedJob);
+    const previous = currentJob;
     jobs = result.jobs;
     if (previous && !jobs.some((job) => job.id === previous.id))
       jobs.push(previous);
-    if (!selectedJob && jobs.length) selectedJob = jobs[0].id;
+    if (!libraryLoaded && !selectedJob && jobs.length) selectedJob = jobs[0].id;
+    libraryLoaded = true;
+    const selected = jobs.find((job) => job.id === selectedJob);
+    currentJob = selected && { ...previous, ...selected };
     signIn();
     renderJobs();
+    if (currentJob?.status === "done" && !currentJob.result)
+      await loadSelectedJob();
   } finally {
     refreshing = false;
   }
@@ -978,7 +1127,8 @@ byId("song-form").addEventListener("submit", async (event) => {
     instrumental: wordless,
     title: draftParent
       ? relatedTitle(draftParent, mode === "edit" ? "AI編集" : "再生成")
-      : (mode === "edit" ? instruction : style).slice(0, 36),
+      : byId("song-title").value.trim() ||
+        (mode === "edit" ? instruction : style).slice(0, 36),
     parent_id: draftParent?.id || "",
     lyrics,
     section_deliveries: wordless ? [] : selectedDeliveries(lyrics),
@@ -998,6 +1148,7 @@ byId("song-form").addEventListener("submit", async (event) => {
       body.append("audio", file);
     }
     await queueJob(body);
+    if (!job.parent_id) byId("song-title").value = "";
   } catch (error) {
     message("form-error", error.message);
   } finally {

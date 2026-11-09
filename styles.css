@@ -843,6 +843,43 @@ textarea::placeholder {
 .jobs li {
   min-width: 0;
 }
+.song-group > .current {
+  margin: 7px 0 0;
+}
+.jobs .song-toggle::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-right: 2px solid #d9a9dd;
+  border-bottom: 2px solid #d9a9dd;
+  transform: rotate(-45deg);
+  margin-inline: 1px 4px;
+}
+.jobs .song-toggle[aria-expanded="true"]::after {
+  transform: rotate(45deg);
+}
+.version-history {
+  margin-top: 7px;
+  border: 1px solid #654267;
+  border-radius: 10px;
+  background: #261a30;
+}
+.version-history summary {
+  min-height: 44px;
+  padding: 10px;
+  cursor: pointer;
+  color: #e6bfe8;
+}
+.version-list {
+  display: grid;
+  gap: 6px;
+  max-height: 15rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0 7px 7px;
+  list-style: none;
+}
 .jobs button {
   display: flex;
   align-items: center;

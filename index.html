@@ -17,9 +17,9 @@
     />
     <title>紫音 SHION — 音楽スタジオ</title>
     <link rel="icon" href="mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=creation-options-2" />
+    <link rel="stylesheet" href="styles.css?v=song-library" />
     <script defer src="abcjs.min.js"></script>
-    <script type="module" src="app.js?v=creation-options-2"></script>
+    <script type="module" src="app.js?v=song-library"></script>
   </head>
   <body>
     <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -188,6 +188,12 @@
               <span class="format-chip">48 kHz <span>STEREO</span></span>
             </div>
             <p id="draft-source" class="draft-source" hidden></p>
+            <div id="title-field" class="field">
+              <label for="song-title"
+                >曲のタイトル <span class="optional">任意</span></label
+              >
+              <input id="song-title" maxlength="80" placeholder="夜明けの街" />
+            </div>
             <div id="edit-field" class="field" hidden>
               <label for="instruction">変更したいこと</label
               ><textarea
