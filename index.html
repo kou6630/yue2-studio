@@ -17,9 +17,9 @@
     />
     <title>紫音 SHION — 音楽スタジオ</title>
     <link rel="icon" href="mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=song-library" />
+    <link rel="stylesheet" href="styles.css?v=delete-tracks" />
     <script defer src="abcjs.min.js"></script>
-    <script type="module" src="app.js?v=song-library"></script>
+    <script type="module" src="app.js?v=delete-tracks"></script>
   </head>
   <body>
     <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -462,6 +462,12 @@
               ><svg><use href="#i-wave" /></svg
             ></span>
           </div>
+          <p
+            id="library-notice"
+            class="library-notice"
+            role="status"
+            hidden
+          ></p>
           <div id="current" class="current" aria-live="polite" hidden></div>
           <ul id="jobs" class="jobs"></ul>
           <div id="empty" class="empty">
@@ -471,6 +477,24 @@
         </aside>
       </div>
     </main>
+    <dialog
+      id="delete-dialog"
+      class="delete-dialog"
+      aria-labelledby="delete-heading"
+      aria-describedby="delete-description"
+    >
+      <h2 id="delete-heading">削除の確認</h2>
+      <p id="delete-description"></p>
+      <p id="delete-error" class="error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="cancel-delete" class="button" autofocus>
+          キャンセル
+        </button>
+        <button type="button" id="confirm-delete" class="button danger">
+          削除する
+        </button>
+      </div>
+    </dialog>
     <footer class="wrap footer">
       <span>SHION</span><span>YuE2 · 48 kHz Stereo</span>
     </footer>

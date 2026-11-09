@@ -819,6 +819,46 @@ textarea::placeholder {
   padding: 6px 10px;
   font-size: 14px;
 }
+.delete-actions,
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 13px;
+}
+.delete-actions .button {
+  min-height: 44px;
+  padding: 6px 9px;
+  color: #ffc4d7;
+  font-size: 14px;
+}
+.library-notice {
+  color: #efc4e8;
+  overflow-wrap: anywhere;
+}
+.delete-dialog {
+  width: min(calc(100% - 32px), 420px);
+  padding: 20px;
+  border: 1px solid #976089;
+  border-radius: 16px;
+  background: #30203d;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.delete-dialog::backdrop {
+  background: #110818b8;
+}
+.delete-dialog p {
+  margin: 10px 0 0;
+}
+.dialog-actions .danger {
+  background: #853351;
+  border-color: #c87b9d;
+}
+.dialog-actions .danger:hover {
+  background: #a24364;
+}
 .current audio {
   width: 100%;
   display: block;

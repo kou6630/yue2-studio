@@ -69,8 +69,10 @@ let selectedJob = "";
 let jobs = [];
 let currentJob = null;
 let libraryLoaded = false;
+let libraryRevision = 0;
 let visibleLibrary = "";
 let visibleJob = "";
+let pendingDelete = null;
 let playerUrl = "";
 let notationTimer;
 let noteRange = null;
@@ -111,7 +113,13 @@ async function resolveEndpoint() {
 }
 
 async function api(path, options = {}) {
-  const { body, auth = true, blob = false, timeout = 15000 } = options;
+  const {
+    body,
+    auth = true,
+    blob = false,
+    timeout = 15000,
+    method = body === undefined ? "GET" : "POST",
+  } = options;
   const headers = {};
   if (auth && token) headers.Authorization = `Bearer ${token}`;
   if (body && !(body instanceof FormData))
@@ -120,7 +128,7 @@ async function api(path, options = {}) {
   let response;
   try {
     response = await fetch(endpoint + path, {
-      method: body === undefined ? "GET" : "POST",
+      method,
       headers,
       body:
         body === undefined || body instanceof FormData
@@ -158,7 +166,9 @@ function signOut(note = "") {
   byId("gate").hidden = false;
   byId("studio").hidden = true;
   byId("logout").hidden = true;
-  byId("current").replaceChildren();
+  byId("delete-dialog").close();
+  pendingDelete = null;
+  message("library-notice", "");
   const list = byId("jobs");
   const current = byId("current");
   list.before(current);
@@ -596,6 +606,64 @@ function versionLabel(job) {
   return job.id === songId(job) ? "元の曲" : "再生成";
 }
 
+function songVersions(job) {
+  return jobs.filter((item) => songId(item) === songId(job));
+}
+
+function openDelete(job, wholeSong) {
+  const versions = songVersions(job);
+  const version =
+    versions.length - versions.findIndex((item) => item.id === job.id);
+  pendingDelete = { job, wholeSong };
+  byId("delete-description").textContent = wholeSong
+    ? `「${songTitle(job)}」の履歴${versions.length > 1 ? `（全${versions.length}件）` : ""}と音源を削除します。`
+    : `「${songTitle(job)}」の v${version}（${versionLabel(job)}）を削除します。`;
+  message("delete-error", "");
+  byId("delete-dialog").showModal();
+}
+
+async function confirmDeletion() {
+  const dialog = byId("delete-dialog");
+  const confirm = byId("confirm-delete");
+  const cancel = byId("cancel-delete");
+  if (!pendingDelete || !dialog.open || confirm.disabled) return;
+  const { job, wholeSong } = pendingDelete;
+  const session = token;
+  confirm.disabled = true;
+  cancel.disabled = true;
+  try {
+    const path = wholeSong
+      ? `/api/songs/${songId(job)}`
+      : `/api/jobs/${job.id}`;
+    const result = await api(path, { method: "DELETE" });
+    if (token !== session) return;
+    libraryRevision++;
+    const removed = new Set(result.deleted);
+    jobs = jobs.filter((item) => !removed.has(item.id));
+    if (draftParent && removed.has(draftParent.id)) {
+      draftParent = null;
+      syncFields();
+    }
+    dialog.close();
+    pendingDelete = null;
+    if (removed.has(selectedJob)) selectJob(songVersions(job)[0] || null);
+    else renderJobs();
+    message(
+      "library-notice",
+      result.audio_pending
+        ? "一覧から削除しました。使用中の音源はPC側の次回起動時に削除します。"
+        : wholeSong
+          ? "曲を削除しました。"
+          : "この版を削除しました。",
+    );
+  } catch (error) {
+    if (dialog.open) message("delete-error", error.message);
+  } finally {
+    confirm.disabled = false;
+    cancel.disabled = false;
+  }
+}
+
 function libraryButton(name, state) {
   const button = document.createElement("button");
   button.type = "button";
@@ -750,6 +818,10 @@ function renderLineage(panel, lineage) {
   }
 
   function related(label, job) {
+    if (job.deleted) {
+      row(label, `${job.title}（削除済み）`);
+      return;
+    }
     const button = action(job.title, () => selectRelatedJob(job.id));
     button.className = "lineage-link";
     row(label, button);
@@ -850,6 +922,7 @@ function renderCurrent(job) {
     panel.replaceChildren();
     return;
   }
+  const versions = songVersions(job);
   const signature = [
     job.id,
     job.status,
@@ -857,6 +930,9 @@ function renderCurrent(job) {
     job.progress,
     job.error,
     Boolean(job.result),
+    versions.length,
+    job.lineage?.source?.deleted,
+    job.lineage?.parent?.deleted,
   ].join("|");
   if (visibleJob === signature) return;
   if (playerUrl) URL.revokeObjectURL(playerUrl);
@@ -890,6 +966,14 @@ function renderCurrent(job) {
     progress.setAttribute("aria-label", "生成の進捗");
     if (Number.isFinite(job.progress)) progress.value = job.progress;
     panel.append(progress);
+  }
+  if (job.status === "error" || (job.status === "done" && job.result)) {
+    const deletion = document.createElement("div");
+    deletion.className = "delete-actions";
+    if (versions.length > 1)
+      deletion.append(action("この版を削除", () => openDelete(job, false)));
+    deletion.append(action("曲を削除", () => openDelete(job, true)));
+    panel.append(deletion);
   }
   if (job.status !== "done" || !job.result) return;
   const actions = document.createElement("div");
@@ -945,11 +1029,13 @@ function renderCurrent(job) {
   if (job.mode === "edit" && !job.result?.abc)
     actions.append(action("下書きを使う", () => openDraft(job, "create")));
   actions.append(action("AIで編集", () => openDraft(job, "edit")));
-  panel.append(actions, audio);
+  panel.querySelector(".delete-actions").before(actions, audio);
 }
 
 async function queueJob(body) {
   const created = await api("/api/jobs", { body, timeout: 120000 });
+  libraryRevision++;
+  message("library-notice", "");
   selectedJob = created.id;
   currentJob = created;
   jobs = [created, ...jobs.filter((job) => job.id !== created.id)];
@@ -961,26 +1047,42 @@ async function queueJob(body) {
 async function refresh() {
   if (!token || refreshing) return;
   const startedWith = token;
+  const revision = libraryRevision;
   refreshing = true;
   try {
     const result = await api("/api/jobs?view=library");
-    if (token !== startedWith) return;
+    if (token !== startedWith || revision !== libraryRevision) return;
     const previous = currentJob;
     jobs = result.jobs;
-    if (previous && !jobs.some((job) => job.id === previous.id))
-      jobs.push(previous);
     if (!libraryLoaded && !selectedJob && jobs.length) selectedJob = jobs[0].id;
     libraryLoaded = true;
     const selected = jobs.find((job) => job.id === selectedJob);
+    if (!selected) selectedJob = "";
     currentJob = selected && { ...previous, ...selected };
     signIn();
     renderJobs();
-    if (currentJob?.status === "done" && !currentJob.result)
+    const related = [currentJob?.lineage?.source, currentJob?.lineage?.parent];
+    if (
+      currentJob?.status === "done" &&
+      (!currentJob.result ||
+        related.some(
+          (item) =>
+            item && !item.deleted && !jobs.some((job) => job.id === item.id),
+        ))
+    )
       await loadSelectedJob();
   } finally {
     refreshing = false;
   }
 }
+
+byId("confirm-delete").addEventListener("click", confirmDeletion);
+byId("cancel-delete").addEventListener("click", () =>
+  byId("delete-dialog").close(),
+);
+byId("delete-dialog").addEventListener("cancel", (event) => {
+  if (byId("confirm-delete").disabled) event.preventDefault();
+});
 
 byId("login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
