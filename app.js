@@ -317,7 +317,11 @@ function renderCurrent(job) {
       api(`/api/jobs/${job.id}/audio`, { blob: true, timeout: 120000 });
     actions.append(
       action("再生", async () => {
-        if (!playerUrl) playerUrl = URL.createObjectURL(await fetchAudio());
+        if (!playerUrl) {
+          const recording = await fetchAudio();
+          if (selectedJob !== job.id || !token) return;
+          playerUrl = URL.createObjectURL(recording);
+        }
         if (!audio.src) audio.src = playerUrl;
         audio.hidden = false;
         await audio.play().catch(() => {});
@@ -345,9 +349,11 @@ function renderCurrent(job) {
 
 async function refresh() {
   if (!token || refreshing) return;
+  const startedWith = token;
   refreshing = true;
   try {
     const result = await api("/api/jobs");
+    if (token !== startedWith) return;
     jobs = result.jobs;
     if (!selectedJob && jobs.length) selectedJob = jobs[0].id;
     signIn();
