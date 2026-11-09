@@ -17,9 +17,9 @@
     />
     <title>紫音 SHION — 音楽スタジオ</title>
     <link rel="icon" href="mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=lyric-sections" />
+    <link rel="stylesheet" href="styles.css?v=creation-options" />
     <script defer src="abcjs.min.js"></script>
-    <script type="module" src="app.js?v=lyric-sections"></script>
+    <script type="module" src="app.js?v=creation-options"></script>
   </head>
   <body>
     <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -188,22 +188,6 @@
               <span class="format-chip">48 kHz <span>STEREO</span></span>
             </div>
             <p id="draft-source" class="draft-source" hidden></p>
-            <div id="sources" class="switch" aria-label="作曲の入力">
-              <button
-                type="button"
-                data-source="prompt"
-                class="active"
-                aria-pressed="true"
-              >
-                プロンプト
-              </button>
-              <button type="button" data-source="lyrics" aria-pressed="false">
-                歌詞
-              </button>
-              <button type="button" data-source="chords" aria-pressed="false">
-                コード進行
-              </button>
-            </div>
             <div id="edit-field" class="field" hidden>
               <label for="instruction">変更したいこと</label
               ><textarea
@@ -240,7 +224,11 @@
               />
             </div>
             <div id="style-field" class="field">
-              <label for="style" id="style-label">曲のイメージ</label
+              <label for="style"
+                ><span id="style-label">曲のイメージ</span>
+                <span id="create-language-note" class="optional"
+                  >日本語でOK・任意</span
+                > </label
               ><textarea
                 id="style"
                 maxlength="1400"
@@ -248,22 +236,114 @@
                 placeholder="夜明けの街を歩く、透明感のあるピアノポップ。"
               ></textarea>
             </div>
-            <div id="chord-field" class="field" hidden>
-              <label for="chords">コード進行</label>
-              <div class="row">
-                <input
-                  id="chords"
-                  maxlength="220"
-                  placeholder="Am7 Fmaj7 C G7"
-                /><label class="tempo" for="bpm"
-                  ><input
-                    id="bpm"
-                    type="number"
-                    min="45"
-                    max="210"
-                    value="92"
-                  /><span>BPM</span></label
-                >
+            <div id="create-options">
+              <div class="creation-grid">
+                <div class="field">
+                  <label for="create-vocal">歌詞・ボーカル</label>
+                  <select id="create-vocal">
+                    <option value="auto">おまかせ</option>
+                    <option value="vocal">歌詞あり</option>
+                    <option value="instrumental">歌詞なし（BGM）</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="create-genre-mode">曲のジャンル</label>
+                  <select id="create-genre-mode">
+                    <option value="auto">おまかせ</option>
+                    <option value="manual">選ぶ（複数可）</option>
+                  </select>
+                </div>
+                <div
+                  id="create-genres"
+                  class="choice-list field"
+                  role="group"
+                  aria-label="曲のジャンルを選ぶ"
+                  hidden
+                ></div>
+                <div class="field">
+                  <label for="create-chord-mode">コード進行</label>
+                  <select id="create-chord-mode">
+                    <option value="auto">おまかせ</option>
+                    <option value="manual">指定する</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="create-tempo-mode">BPM</label>
+                  <select id="create-tempo-mode">
+                    <option value="auto">おまかせ</option>
+                    <option value="manual">指定する</option>
+                  </select>
+                </div>
+                <div id="chord-field" class="field" hidden>
+                  <label for="chords">コードを入力</label>
+                  <input
+                    id="chords"
+                    maxlength="220"
+                    placeholder="Am7 Fmaj7 C G7"
+                    spellcheck="false"
+                  />
+                </div>
+                <div id="tempo-field" class="field" hidden>
+                  <label for="bpm"
+                    >テンポ <span class="optional">45〜210</span></label
+                  >
+                  <input id="bpm" type="number" min="45" max="210" value="92" />
+                </div>
+                <div class="field">
+                  <label for="create-instrument-mode">楽器</label>
+                  <select id="create-instrument-mode">
+                    <option value="auto">おまかせ</option>
+                    <option value="manual">選ぶ（複数可）</option>
+                  </select>
+                </div>
+                <div id="create-duration-slot"></div>
+                <div
+                  id="create-instruments"
+                  class="choice-list field"
+                  role="group"
+                  aria-label="楽器を選ぶ"
+                  hidden
+                ></div>
+                <div
+                  id="create-instrument-counts"
+                  class="creation-grid"
+                  role="group"
+                  aria-label="楽器の個数"
+                  hidden
+                ></div>
+              </div>
+              <div id="create-vocal-settings" class="creation-grid" hidden>
+                <div class="field">
+                  <label for="create-lyrics-source">歌詞の作り方</label>
+                  <select id="create-lyrics-source">
+                    <option value="auto">おまかせ</option>
+                    <option value="manual">自分で書く</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="create-voice-count">ボーカル人数</label>
+                  <select id="create-voice-count">
+                    <option value="0">おまかせ</option>
+                    <option value="1">1人</option>
+                    <option value="2">2人</option>
+                    <option value="3">3人</option>
+                    <option value="4">4人</option>
+                  </select>
+                </div>
+                <div id="create-lyric-language-field" class="field">
+                  <label for="create-lyric-language">歌詞の言語</label>
+                  <select id="create-lyric-language">
+                    <option value="ja">日本語</option>
+                    <option value="en">英語</option>
+                  </select>
+                </div>
+                <div
+                  id="create-voice-types"
+                  class="creation-grid"
+                  role="group"
+                  aria-label="ボーカルの声"
+                  hidden
+                ></div>
               </div>
             </div>
             <div id="lyrics-field" class="field" hidden>
@@ -342,7 +422,7 @@
                   </button>
                 </div>
               </div>
-              <div class="field duration">
+              <div id="duration-field" class="field duration">
                 <label for="seconds">曲の長さ</label
                 ><select id="seconds">
                   <option value="30">30秒</option>

@@ -1,9 +1,45 @@
 const byId = (id) => document.getElementById(id);
 const tabs = [...document.querySelectorAll("[data-tab]")];
-const sources = [...document.querySelectorAll("[data-source]")];
 const tones = [...document.querySelectorAll("[data-tone]")];
 const sessionKey = "shion-studio-session";
 const durationChoices = [30, 60, 120, 180];
+const genreLabels = {
+  jpop: "J-POP",
+  pop: "ポップ",
+  hiphop: "ヒップホップ",
+  rock: "ロック",
+  rnb: "R&B",
+  jazz: "ジャズ",
+  edm: "EDM",
+  lofi: "ローファイ",
+  citypop: "シティポップ",
+  ballad: "バラード",
+  acoustic: "アコースティック",
+  classical: "クラシック",
+  cinematic: "映画音楽",
+  ambient: "アンビエント",
+  funk: "ファンク",
+  metal: "メタル",
+};
+const instrumentLabels = {
+  piano: "ピアノ",
+  epiano: "エレピ",
+  acoustic_guitar: "アコギ",
+  electric_guitar: "エレキギター",
+  bass: "ベース",
+  drums: "ドラム",
+  synth: "シンセ",
+  strings: "ストリングス",
+  violin: "バイオリン",
+  cello: "チェロ",
+  flute: "フルート",
+  trumpet: "トランペット",
+  sax: "サックス",
+  percussion: "打楽器",
+  organ: "オルガン",
+  koto: "箏",
+};
+const voiceLabels = { auto: "おまかせ", male: "男性", female: "女性" };
 const sectionTags = {
   intro: ["Intro", "イントロ"],
   verse: ["Verse", "Aメロ"],
@@ -26,7 +62,6 @@ let deliveryChoices = new Map();
 let token = sessionStorage.getItem(sessionKey) || "";
 let endpoint = null;
 let tab = "create";
-let source = "prompt";
 let instrumental = false;
 let editSourceVisible = false;
 let draftParent = null;
@@ -135,7 +170,6 @@ function signOut(note = "") {
   byId("song-form").reset();
   byId("audio-label").textContent = "音源を選択";
   setTab("create");
-  setSource("prompt");
   setTone(false);
   message("login-error", note);
 }
@@ -160,17 +194,92 @@ function setTab(next, parent = null) {
   syncFields();
 }
 
-function setSource(next) {
-  if (next === "chords") draftParent = null;
-  source = next;
-  setPressed(sources, "source", source);
-  syncFields();
-}
-
 function setTone(value) {
   instrumental = value;
   setPressed(tones, "tone", value ? "instrumental" : "vocal");
   syncFields();
+}
+
+function isInstrumental() {
+  return tab === "create"
+    ? byId("create-vocal").value === "instrumental"
+    : instrumental;
+}
+
+function selectedChoices(id) {
+  return [...byId(id).querySelectorAll("input:checked")].map(
+    (input) => input.value,
+  );
+}
+
+function syncCreationOptions() {
+  const vocal = byId("create-vocal").value === "vocal";
+  const manualLyrics = byId("create-lyrics-source").value === "manual";
+  const voiceCount = Number(byId("create-voice-count").value);
+  const manualInstruments = byId("create-instrument-mode").value === "manual";
+  const instruments = selectedChoices("create-instruments");
+  const manualTempo = byId("create-tempo-mode").value === "manual";
+  byId("create-vocal-settings").hidden = !vocal;
+  byId("create-lyric-language-field").hidden = manualLyrics;
+  byId("create-voice-types").hidden = !voiceCount;
+  for (const [index, row] of [...byId("create-voice-types").children].entries())
+    row.hidden = index >= voiceCount;
+  byId("chord-field").hidden = byId("create-chord-mode").value !== "manual";
+  byId("tempo-field").hidden = !manualTempo;
+  byId("bpm").disabled = tab !== "create" || !manualTempo;
+  byId("create-genres").hidden = byId("create-genre-mode").value !== "manual";
+  byId("create-instruments").hidden = !manualInstruments;
+  byId("create-instrument-counts").hidden =
+    !manualInstruments || !instruments.length;
+  for (const row of byId("create-instrument-counts").children)
+    row.hidden = !instruments.includes(row.dataset.instrument);
+  return vocal && manualLyrics;
+}
+
+function creationPayload(lyrics) {
+  const vocal = byId("create-vocal").value;
+  const lyricSource =
+    vocal === "vocal" ? byId("create-lyrics-source").value : "auto";
+  const chordMode = byId("create-chord-mode").value;
+  const tempoMode = byId("create-tempo-mode").value;
+  const genreMode = byId("create-genre-mode").value;
+  const instrumentMode = byId("create-instrument-mode").value;
+  const chords = chordMode === "manual" ? byId("chords").value.trim() : "";
+  const bpm = tempoMode === "manual" ? byId("bpm").valueAsNumber : null;
+  const genres = genreMode === "manual" ? selectedChoices("create-genres") : [];
+  const instruments =
+    instrumentMode === "manual" ? selectedChoices("create-instruments") : [];
+  const voiceCount =
+    vocal === "vocal" ? Number(byId("create-voice-count").value) : 0;
+  if (lyricSource === "manual" && !lyrics.trim())
+    throw new Error("歌詞を入力してください。");
+  if (chordMode === "manual" && !chords)
+    throw new Error("コード進行を入力してください。");
+  if (tempoMode === "manual" && !Number.isInteger(bpm))
+    throw new Error("BPMは45〜210の整数で入力してください。");
+  if (genreMode === "manual" && !genres.length)
+    throw new Error("ジャンルを1つ以上選んでください。");
+  if (instrumentMode === "manual" && !instruments.length)
+    throw new Error("楽器を1つ以上選んでください。");
+  return {
+    vocal,
+    lyrics_source: lyricSource,
+    lyric_language:
+      vocal === "vocal" ? byId("create-lyric-language").value : "ja",
+    chords,
+    bpm,
+    genres,
+    voices: Array.from(
+      { length: voiceCount },
+      (_, i) => byId(`create-voice-${i + 1}`).value,
+    ),
+    instruments: Object.fromEntries(
+      instruments.map((id) => [
+        id,
+        Number(byId(`instrument-count-${id}`).value),
+      ]),
+    ),
+  };
 }
 
 function syncFields() {
@@ -182,6 +291,8 @@ function syncFields() {
   };
   const [kicker, title, style, submit] = labels[tab];
   const editing = tab === "edit";
+  const creating = tab === "create";
+  const manualLyrics = syncCreationOptions();
   byId("workspace-kicker").textContent = kicker;
   byId("workspace-title").textContent = title;
   byId("style-label").textContent = style;
@@ -191,17 +302,24 @@ function syncFields() {
     tab === "cover"
       ? "アコースティックなボサノバに。軽いギターと柔らかいベース。"
       : "夜明けの街を歩く、透明感のあるピアノポップ。";
-  byId("sources").hidden = tab !== "create";
-  byId("chord-field").hidden = tab !== "create" || source !== "chords";
+  byId("create-options").hidden = !creating;
+  byId("create-language-note").hidden = !creating;
   byId("cover-field").hidden = tab !== "cover";
   byId("abc-field").hidden = tab !== "abc";
   byId("edit-field").hidden = !editing;
   byId("edit-tools").hidden = !editing;
-  byId("render-options").hidden = editing;
+  byId("render-options").hidden = editing || creating;
+  const duration = byId("duration-field");
+  const durationSlot = byId(
+    creating ? "create-duration-slot" : "render-options",
+  );
+  if (duration.parentElement !== durationSlot) durationSlot.append(duration);
   byId("style-field").hidden = editing && !editSourceVisible;
   byId("lyrics-field").hidden = editing
     ? !editSourceVisible
-    : instrumental || (tab === "create" && source === "prompt");
+    : creating
+      ? !manualLyrics
+      : instrumental;
   const editToggle = byId("toggle-edit-source");
   editToggle.setAttribute(
     "aria-expanded",
@@ -217,8 +335,8 @@ function syncFields() {
   byId("lyric-note").textContent =
     tab === "cover"
       ? "空欄なら音源から認識"
-      : tab === "create" && source === "lyrics"
-        ? ""
+      : creating
+        ? "入力した言葉を使用"
         : "任意";
   message("form-error", "");
   renderSectionDeliveries();
@@ -259,7 +377,7 @@ function selectedDeliveries(lyrics, choices = deliveryChoices) {
 function renderSectionDeliveries() {
   const sections = lyricSections(byId("lyrics").value);
   const list = byId("section-voices");
-  byId("section-delivery").hidden = instrumental || !sections.length;
+  byId("section-delivery").hidden = isInstrumental() || !sections.length;
   const keys = new Set(sections.map(sectionKey));
   for (const key of deliveryChoices.keys()) {
     if (!keys.has(key)) deliveryChoices.delete(key);
@@ -394,6 +512,20 @@ function openDraft(job, next) {
   byId("abc").value = result.abc || "";
   deliveryChoices = deliveryMap(job.section_deliveries);
   if (next === "edit") editSourceVisible = false;
+  if (next === "create") {
+    byId("create-vocal").value = job.instrumental ? "instrumental" : "vocal";
+    byId("create-lyrics-source").value = byId("lyrics").value
+      ? "manual"
+      : "auto";
+    for (const field of [
+      "chord-mode",
+      "tempo-mode",
+      "genre-mode",
+      "instrument-mode",
+    ])
+      byId(`create-${field}`).value = "auto";
+    byId("create-voice-count").value = "0";
+  }
   if (durationChoices.includes(job.seconds))
     byId("seconds").value = String(job.seconds);
   setTone(job.instrumental);
@@ -402,7 +534,9 @@ function openDraft(job, next) {
     behavior: "smooth",
     block: "start",
   });
-  byId(next === "edit" ? "instruction" : "abc").focus({ preventScroll: true });
+  byId(
+    next === "edit" ? "instruction" : next === "create" ? "style" : "abc",
+  ).focus({ preventScroll: true });
 }
 
 function action(text, callback) {
@@ -538,6 +672,45 @@ function relatedTitle(job, suffix) {
   return `${(job.lineage?.source?.title || job.title).slice(0, 70)}（${suffix}）`;
 }
 
+function renderCreation(panel, job) {
+  const settings = job.creation;
+  if (!settings) return;
+  const details = document.createElement("details");
+  details.className = "lineage";
+  const summary = document.createElement("summary");
+  summary.textContent = "作曲の指定";
+  const list = document.createElement("dl");
+  const bpm = settings.resolved_bpm ?? settings.bpm;
+  const rows = [
+    [
+      "歌詞",
+      { vocal: "あり", instrumental: "なし（BGM）", auto: "おまかせ" }[
+        settings.vocal
+      ],
+    ],
+    ["ボーカル", settings.voices.map((voice) => voiceLabels[voice]).join("・")],
+    ["ジャンル", settings.genres.map((genre) => genreLabels[genre]).join("・")],
+    [
+      "楽器",
+      Object.entries(settings.instruments)
+        .map(([id, count]) => `${instrumentLabels[id]} × ${count}`)
+        .join("・"),
+    ],
+    ["コード進行", settings.chords],
+    ["BPM", bpm && `${bpm}${settings.bpm === null ? "（おまかせ）" : ""}`],
+  ];
+  for (const [label, value] of rows) {
+    if (!value) continue;
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const description = document.createElement("dd");
+    description.textContent = value;
+    list.append(term, description);
+  }
+  details.append(summary, list);
+  panel.append(details);
+}
+
 function renderCurrent(job) {
   const panel = byId("current");
   if (!job) {
@@ -557,6 +730,7 @@ function renderCurrent(job) {
   stage.textContent = job.error || job.stage;
   panel.append(title, stage);
   renderLineage(panel, job.lineage);
+  renderCreation(panel, job);
   if (job.section_deliveries?.length) {
     const delivery = document.createElement("p");
     delivery.textContent = `歌い方　${job.section_deliveries
@@ -626,13 +800,7 @@ function renderCurrent(job) {
   if (job.result?.abc)
     actions.append(action("楽譜を開く", () => openDraft(job, "abc")));
   if (job.mode === "edit" && !job.result?.abc)
-    actions.append(
-      action("下書きを使う", () => {
-        openDraft(job, "create");
-        setSource(job.result?.lyrics ? "lyrics" : "prompt");
-        byId("style").focus({ preventScroll: true });
-      }),
-    );
+    actions.append(action("下書きを使う", () => openDraft(job, "create")));
   actions.append(action("AIで編集", () => openDraft(job, "edit")));
   panel.append(actions, audio);
 }
@@ -696,8 +864,64 @@ byId("logout").addEventListener("click", async () => {
 });
 for (const button of tabs)
   button.addEventListener("click", () => setTab(button.dataset.tab));
-for (const button of sources)
-  button.addEventListener("click", () => setSource(button.dataset.source));
+function addChoiceChips(container, labels) {
+  for (const [id, text] of Object.entries(labels)) {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = id;
+    input.className = "visually-hidden";
+    const chip = document.createElement("span");
+    chip.textContent = text;
+    label.append(input, chip);
+    byId(container).append(label);
+  }
+}
+
+function addCreationSelect(container, id, title, choices) {
+  const row = document.createElement("div");
+  row.className = "field";
+  row.hidden = true;
+  const label = document.createElement("label");
+  label.htmlFor = id;
+  label.textContent = title;
+  const select = document.createElement("select");
+  select.id = id;
+  for (const [value, text] of choices) select.add(new Option(text, value));
+  row.append(label, select);
+  byId(container).append(row);
+  return row;
+}
+
+addChoiceChips("create-genres", genreLabels);
+addChoiceChips("create-instruments", instrumentLabels);
+for (const [id, label] of Object.entries(instrumentLabels)) {
+  const row = addCreationSelect(
+    "create-instrument-counts",
+    `instrument-count-${id}`,
+    `${label}の個数`,
+    [1, 2, 3, 4].map((count) => [count, String(count)]),
+  );
+  row.dataset.instrument = id;
+}
+for (const person of [1, 2, 3, 4])
+  addCreationSelect(
+    "create-voice-types",
+    `create-voice-${person}`,
+    `${person}人目の声`,
+    Object.entries(voiceLabels),
+  );
+byId("create-options").addEventListener("change", (event) => {
+  if (
+    event.target.id === "create-vocal" ||
+    event.target.id === "create-lyrics-source"
+  )
+    syncFields();
+  else {
+    syncCreationOptions();
+    message("form-error", "");
+  }
+});
 for (const button of tones)
   button.addEventListener("click", () =>
     setTone(button.dataset.tone === "instrumental"),
@@ -741,7 +965,8 @@ byId("song-form").addEventListener("submit", async (event) => {
   const button = byId("submit-song");
   button.disabled = true;
   message("form-error", "");
-  const mode = tab === "create" ? source : tab;
+  const mode = tab;
+  const wordless = isInstrumental();
   const style = byId("style").value.trim();
   const instruction = byId("instruction").value.trim();
   const lyrics =
@@ -750,19 +975,18 @@ byId("song-form").addEventListener("submit", async (event) => {
     mode,
     style,
     instruction,
-    instrumental,
+    instrumental: wordless,
     title: draftParent
       ? relatedTitle(draftParent, mode === "edit" ? "AI編集" : "再生成")
       : (mode === "edit" ? instruction : style).slice(0, 36),
     parent_id: draftParent?.id || "",
     lyrics,
-    section_deliveries: instrumental ? [] : selectedDeliveries(lyrics),
-    chords: mode === "chords" ? byId("chords").value : "",
+    section_deliveries: wordless ? [] : selectedDeliveries(lyrics),
     abc: mode === "abc" || mode === "edit" ? byId("abc").value : "",
     seconds: Number(byId("seconds").value),
-    bpm: mode === "chords" ? Number(byId("bpm").value) : 92,
   };
   try {
+    if (mode === "create") job.creation = creationPayload(lyrics);
     let body = job;
     if (mode === "cover") {
       const file = byId("source-audio").files[0];

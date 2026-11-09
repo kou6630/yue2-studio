@@ -546,16 +546,51 @@ textarea::placeholder {
 .label-row {
   justify-content: space-between;
 }
-.tempo {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
+.creation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+  min-width: 0;
 }
-.tempo input {
-  width: 78px;
+#create-options select {
+  padding-inline: 9px;
+}
+.choice-list,
+#create-instrument-counts,
+#create-voice-types {
+  grid-column: 1 / -1;
+}
+.choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #23172d;
+}
+.choice-list label {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+.choice-list span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid #67466e;
+  border-radius: 9px;
+  font-size: 14px;
+}
+.choice-list input:checked + span {
+  border-color: #c781be;
+  background: linear-gradient(115deg, #65345f, #49326b);
+  color: #fff;
+}
+.choice-list input:focus-visible + span {
+  outline: 2px solid #f4b6ec;
+  outline-offset: 2px;
 }
 .render-options {
   display: grid;
