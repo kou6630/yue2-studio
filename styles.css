@@ -569,6 +569,12 @@ textarea::placeholder {
 .make {
   margin-top: 22px;
 }
+#edit-submit-slot .make {
+  margin-top: 12px;
+}
+#toggle-edit-source {
+  margin-top: 6px;
+}
 .code {
   font-family: Consolas, monospace;
   font-size: 15px;
@@ -672,6 +678,7 @@ textarea::placeholder {
   margin: 4px 0;
   color: var(--muted);
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 .current .actions {
   display: flex;
@@ -699,10 +706,14 @@ textarea::placeholder {
 }
 .jobs {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px;
   list-style: none;
   margin: 0;
   padding: 0;
+}
+.jobs li {
+  min-width: 0;
 }
 .jobs button {
   display: flex;
@@ -710,6 +721,8 @@ textarea::placeholder {
   gap: 10px;
   text-align: left;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 48px;
   padding: 9px 10px;
   border: 1px solid #4d3458;
@@ -730,9 +743,12 @@ textarea::placeholder {
   white-space: nowrap;
 }
 .jobs .job-state {
+  flex: none;
+  max-width: 40%;
   color: #d9a9dd;
   font-size: 13px;
-  white-space: nowrap;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 .footer {
   padding-block: 24px;

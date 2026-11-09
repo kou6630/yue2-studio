@@ -9,6 +9,7 @@ let endpoint = null;
 let tab = "create";
 let source = "prompt";
 let instrumental = false;
+let editSourceVisible = false;
 let selectedJob = "";
 let jobs = [];
 let visibleJob = "";
@@ -125,6 +126,11 @@ function setPressed(buttons, attribute, value) {
 }
 
 function setTab(next) {
+  if (next === "edit" && tab !== "edit") {
+    editSourceVisible = !["style", "lyrics", "abc"].some((id) =>
+      byId(id).value.trim(),
+    );
+  }
   tab = next;
   setPressed(tabs, "tab", tab);
   syncFields();
@@ -150,6 +156,7 @@ function syncFields() {
     edit: ["04 / AI EDIT", "AIで編集", "元の曲調", "AIで下書きを編集"],
   };
   const [kicker, title, style, submit] = labels[tab];
+  const editing = tab === "edit";
   byId("workspace-kicker").textContent = kicker;
   byId("workspace-title").textContent = title;
   byId("style-label").textContent = style;
@@ -161,12 +168,26 @@ function syncFields() {
   byId("sources").hidden = tab !== "create";
   byId("chord-field").hidden = tab !== "create" || source !== "chords";
   byId("cover-field").hidden = tab !== "cover";
-  byId("abc-field").hidden = tab !== "abc" && tab !== "edit";
-  byId("edit-field").hidden = tab !== "edit";
-  byId("render-options").hidden = tab === "edit";
-  byId("lyrics-field").hidden =
-    tab !== "edit" &&
-    (instrumental || (tab === "create" && source === "prompt"));
+  byId("abc-field").hidden = tab !== "abc";
+  byId("edit-field").hidden = !editing;
+  byId("edit-tools").hidden = !editing;
+  byId("render-options").hidden = editing;
+  byId("style-field").hidden = editing && !editSourceVisible;
+  byId("lyrics-field").hidden = editing
+    ? !editSourceVisible
+    : instrumental || (tab === "create" && source === "prompt");
+  const editToggle = byId("toggle-edit-source");
+  editToggle.setAttribute(
+    "aria-expanded",
+    String(editing && editSourceVisible),
+  );
+  editToggle.textContent = editSourceVisible
+    ? "元の曲調・歌詞を閉じる"
+    : "元の曲調・歌詞を表示";
+  const submitButton = byId("submit-song");
+  const slot = byId(editing ? "edit-submit-slot" : "standard-submit-slot");
+  if (submitButton.parentElement !== slot)
+    slot.append(byId("form-error"), submitButton);
   byId("lyric-note").textContent =
     tab === "cover"
       ? "空欄なら音源から認識"
@@ -246,6 +267,7 @@ function openDraft(job, next) {
   byId("lyrics").value =
     result.lyrics === "[instrumental]" ? "" : result.lyrics || "";
   byId("abc").value = result.abc || "";
+  if (next === "edit") editSourceVisible = false;
   if (durationChoices.includes(job.seconds))
     byId("seconds").value = String(job.seconds);
   setTone(job.instrumental);
@@ -361,6 +383,23 @@ function renderCurrent(job) {
       ),
     );
   }
+  if (job.mode === "edit" && job.result?.style) {
+    actions.append(
+      action("この内容で再生成", () => {
+        const { style, lyrics, abc } = job.result;
+        return queueJob({
+          mode: abc ? "abc" : lyrics ? "lyrics" : "prompt",
+          title: `${job.title.slice(0, 72)}（再生成）`,
+          style,
+          lyrics,
+          abc,
+          instrumental: job.instrumental,
+          seconds: job.seconds,
+          seed: job.seed,
+        });
+      }),
+    );
+  }
   if (job.result?.abc)
     actions.append(action("楽譜を開く", () => openDraft(job, "abc")));
   if (job.mode === "edit" && !job.result?.abc)
@@ -373,6 +412,15 @@ function renderCurrent(job) {
     );
   actions.append(action("AIで編集", () => openDraft(job, "edit")));
   panel.append(actions, audio);
+}
+
+async function queueJob(body) {
+  const created = await api("/api/jobs", { body, timeout: 120000 });
+  selectedJob = created.id;
+  jobs = [created, ...jobs].slice(0, 24);
+  renderJobs();
+  if (matchMedia("(max-width: 820px)").matches)
+    byId("current").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 async function refresh() {
@@ -428,6 +476,10 @@ for (const button of tones)
   button.addEventListener("click", () =>
     setTone(button.dataset.tone === "instrumental"),
   );
+byId("toggle-edit-source").addEventListener("click", () => {
+  editSourceVisible = !editSourceVisible;
+  syncFields();
+});
 byId("abc").addEventListener("input", drawNotation);
 byId("apply-note").addEventListener("click", () => {
   const input = byId("abc");
@@ -463,7 +515,10 @@ byId("song-form").addEventListener("submit", async (event) => {
     instruction,
     instrumental,
     title: (mode === "edit" ? instruction : style).slice(0, 36),
-    lyrics: byId("lyrics-field").hidden ? "" : byId("lyrics").value,
+    lyrics:
+      mode === "edit" || !byId("lyrics-field").hidden
+        ? byId("lyrics").value
+        : "",
     chords: mode === "chords" ? byId("chords").value : "",
     abc: mode === "abc" || mode === "edit" ? byId("abc").value : "",
     seconds: Number(byId("seconds").value),
@@ -480,12 +535,7 @@ byId("song-form").addEventListener("submit", async (event) => {
       body.append("job", JSON.stringify(job));
       body.append("audio", file);
     }
-    const created = await api("/api/jobs", { body, timeout: 120000 });
-    selectedJob = created.id;
-    jobs = [created, ...jobs].slice(0, 24);
-    renderJobs();
-    if (matchMedia("(max-width: 820px)").matches)
-      byId("current").scrollIntoView({ behavior: "smooth", block: "center" });
+    await queueJob(body);
   } catch (error) {
     message("form-error", error.message);
   } finally {

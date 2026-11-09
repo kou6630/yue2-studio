@@ -17,9 +17,9 @@
     />
     <title>紫音 SHION — 音楽スタジオ</title>
     <link rel="icon" href="mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=compact-edit" />
     <script defer src="abcjs.min.js"></script>
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=compact-edit"></script>
   </head>
   <body>
     <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -212,6 +212,18 @@
                 placeholder="もう少しゆったり。サビを明るくして、ピアノを前に。"
               ></textarea>
             </div>
+            <div id="edit-tools" hidden>
+              <div id="edit-submit-slot"></div>
+              <button
+                type="button"
+                id="toggle-edit-source"
+                class="button plain"
+                aria-controls="style-field lyrics-field"
+                aria-expanded="false"
+              >
+                元の曲調・歌詞を表示
+              </button>
+            </div>
             <div id="cover-field" class="field" hidden>
               <label for="source-audio">元の音源</label>
               <label class="file-control" for="source-audio"
@@ -226,7 +238,7 @@
                 accept="audio/*,.mp3,.m4a,.wav,.flac,.ogg,.opus,.aac"
               />
             </div>
-            <div class="field">
+            <div id="style-field" class="field">
               <label for="style" id="style-label">曲のイメージ</label
               ><textarea
                 id="style"
@@ -327,16 +339,18 @@
                 </select>
               </div>
             </div>
-            <p id="form-error" class="error" role="alert" hidden></p>
-            <button
-              id="submit-song"
-              class="button primary full make"
-              type="submit"
-            >
-              <svg><use href="#i-spark" /></svg
-              ><span id="submit-label">曲を生成</span
-              ><svg class="right-icon"><use href="#i-arrow" /></svg>
-            </button>
+            <div id="standard-submit-slot">
+              <p id="form-error" class="error" role="alert" hidden></p>
+              <button
+                id="submit-song"
+                class="button primary full make"
+                type="submit"
+              >
+                <svg><use href="#i-spark" /></svg
+                ><span id="submit-label">曲を生成</span
+                ><svg class="right-icon"><use href="#i-arrow" /></svg>
+              </button>
+            </div>
           </form>
         </section>
         <aside class="panel library" aria-labelledby="library-title">
