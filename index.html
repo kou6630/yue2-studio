@@ -17,9 +17,9 @@
     />
     <title>紫音 SHION — 音楽スタジオ</title>
     <link rel="icon" href="mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=edit-lineage" />
+    <link rel="stylesheet" href="styles.css?v=lyric-sections" />
     <script defer src="abcjs.min.js"></script>
-    <script type="module" src="app.js?v=edit-lineage"></script>
+    <script type="module" src="app.js?v=lyric-sections"></script>
   </head>
   <body>
     <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -269,12 +269,24 @@
             <div id="lyrics-field" class="field" hidden>
               <label for="lyrics"
                 >歌詞 <span class="optional" id="lyric-note">任意</span></label
-              ><textarea
+              >
+              <div
+                id="section-tags"
+                class="section-tags"
+                aria-label="歌詞に区切りタグを入れる"
+              ></div>
+              <textarea
                 id="lyrics"
                 maxlength="9000"
                 rows="6"
                 placeholder="[Verse]&#10;朝の光が差し込んで&#10;&#10;[Chorus]&#10;新しい空へ歩き出す"
               ></textarea>
+              <details id="section-delivery" class="section-delivery" hidden>
+                <summary id="section-delivery-label">
+                  パートごとの歌い方
+                </summary>
+                <div id="section-voices" class="section-voices"></div>
+              </details>
             </div>
             <div id="abc-field" class="field" hidden>
               <div class="label-row">

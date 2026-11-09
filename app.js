@@ -4,6 +4,25 @@ const sources = [...document.querySelectorAll("[data-source]")];
 const tones = [...document.querySelectorAll("[data-tone]")];
 const sessionKey = "shion-studio-session";
 const durationChoices = [30, 60, 120, 180];
+const sectionTags = {
+  intro: ["Intro", "イントロ"],
+  verse: ["Verse", "Aメロ"],
+  "pre-chorus": ["Pre-Chorus", "Bメロ"],
+  chorus: ["Chorus", "サビ"],
+  interlude: ["Interlude", "間奏"],
+  bridge: ["Bridge", "ブリッジ"],
+  outro: ["Outro", "アウトロ"],
+};
+const deliveryLabels = {
+  "": "おまかせ",
+  melodic: "メロディで歌う",
+  rap: "ラップ調",
+  spoken: "語り",
+  soft: "ささやくように",
+  strong: "力強く",
+  low: "低い声で",
+};
+let deliveryChoices = new Map();
 let token = sessionStorage.getItem(sessionKey) || "";
 let endpoint = null;
 let tab = "create";
@@ -111,6 +130,8 @@ function signOut(note = "") {
   selectedJob = "";
   visibleJob = "";
   jobs = [];
+  deliveryChoices.clear();
+  byId("section-delivery").open = false;
   byId("song-form").reset();
   byId("audio-label").textContent = "音源を選択";
   setTab("create");
@@ -200,7 +221,106 @@ function syncFields() {
         ? ""
         : "任意";
   message("form-error", "");
+  renderSectionDeliveries();
   drawNotation();
+}
+
+function lyricSections(lyrics) {
+  const counts = {};
+  const sections = [];
+  for (const line of lyrics.split(/\r?\n/)) {
+    const match = /^\[\s*([a-z]+(?:[ -][a-z]+)?)(?:\s+\d+)?\s*\]$/i.exec(
+      line.trim(),
+    );
+    if (!match) continue;
+    let tag = match[1].toLowerCase().replace(" ", "-");
+    if (tag === "prechorus") tag = "pre-chorus";
+    if (!Object.hasOwn(sectionTags, tag)) continue;
+    counts[tag] = (counts[tag] || 0) + 1;
+    sections.push({ tag, occurrence: counts[tag] });
+  }
+  return sections;
+}
+
+function sectionKey({ tag, occurrence }) {
+  return `${tag}:${occurrence}`;
+}
+
+function deliveryMap(entries = []) {
+  return new Map(entries.map((part) => [sectionKey(part), part.delivery]));
+}
+
+function selectedDeliveries(lyrics, choices = deliveryChoices) {
+  return lyricSections(lyrics)
+    .filter((part) => choices.has(sectionKey(part)))
+    .map((part) => ({ ...part, delivery: choices.get(sectionKey(part)) }));
+}
+
+function renderSectionDeliveries() {
+  const sections = lyricSections(byId("lyrics").value);
+  const list = byId("section-voices");
+  byId("section-delivery").hidden = instrumental || !sections.length;
+  const keys = new Set(sections.map(sectionKey));
+  for (const key of deliveryChoices.keys()) {
+    if (!keys.has(key)) deliveryChoices.delete(key);
+  }
+  const updateLabel = () => {
+    const count = deliveryChoices.size;
+    byId("section-delivery-label").textContent = count
+      ? `パートごとの歌い方（${count}）`
+      : "パートごとの歌い方";
+  };
+  list.replaceChildren();
+  for (const part of sections) {
+    const key = sectionKey(part);
+    const row = document.createElement("label");
+    const name = document.createElement("span");
+    name.textContent = `${sectionTags[part.tag][1]} ${part.occurrence}`;
+    const select = document.createElement("select");
+    for (const [value, label] of Object.entries(deliveryLabels))
+      select.add(new Option(label, value));
+    select.value = deliveryChoices.get(key) || "";
+    select.addEventListener("change", () => {
+      if (select.value) deliveryChoices.set(key, select.value);
+      else deliveryChoices.delete(key);
+      updateLabel();
+    });
+    row.append(name, select);
+    list.append(row);
+  }
+  updateLabel();
+}
+
+function insertSectionTag(tag) {
+  const input = byId("lyrics");
+  const text = input.value;
+  const caret = input.selectionEnd;
+  const lineStart = text.lastIndexOf("\n", caret - 1) + 1;
+  const lineEnd = text.indexOf("\n", caret);
+  const offset =
+    caret === lineStart ? caret : lineEnd < 0 ? text.length : lineEnd;
+  const separator = offset && text[offset - 1] !== "\n" ? "\n\n" : "";
+  const inserted = `${separator}[${sectionTags[tag][0]}]\n`;
+  if (text.length + inserted.length > input.maxLength) {
+    message("form-error", "歌詞欄の文字数が上限に達しました。");
+    return;
+  }
+  const prior = lyricSections(text.slice(0, offset)).filter(
+    (part) => part.tag === tag,
+  ).length;
+  for (const part of lyricSections(text).reverse()) {
+    if (part.tag !== tag || part.occurrence <= prior) continue;
+    const key = sectionKey(part);
+    if (!deliveryChoices.has(key)) continue;
+    deliveryChoices.set(
+      sectionKey({ tag, occurrence: part.occurrence + 1 }),
+      deliveryChoices.get(key),
+    );
+    deliveryChoices.delete(key);
+  }
+  input.setRangeText(inserted, offset, offset, "end");
+  input.focus({ preventScroll: true });
+  renderSectionDeliveries();
 }
 
 function drawNotation() {
@@ -272,6 +392,7 @@ function openDraft(job, next) {
   byId("lyrics").value =
     result.lyrics === "[instrumental]" ? "" : result.lyrics || "";
   byId("abc").value = result.abc || "";
+  deliveryChoices = deliveryMap(job.section_deliveries);
   if (next === "edit") editSourceVisible = false;
   if (durationChoices.includes(job.seconds))
     byId("seconds").value = String(job.seconds);
@@ -382,7 +503,12 @@ function renderLineage(panel, lineage) {
       lineage.parent,
     );
   if (lineage.instruction) row("AI編集の指示", lineage.instruction);
-  const labels = { style: "曲調", lyrics: "歌詞", abc: "楽譜" };
+  const labels = {
+    style: "曲調",
+    lyrics: "歌詞",
+    abc: "楽譜",
+    section_deliveries: "歌い方",
+  };
   if (lineage.changes?.length) {
     row("変更点", lineage.changes.map((key) => labels[key]).join("・"));
   }
@@ -431,6 +557,16 @@ function renderCurrent(job) {
   stage.textContent = job.error || job.stage;
   panel.append(title, stage);
   renderLineage(panel, job.lineage);
+  if (job.section_deliveries?.length) {
+    const delivery = document.createElement("p");
+    delivery.textContent = `歌い方　${job.section_deliveries
+      .map(
+        (part) =>
+          `${sectionTags[part.tag][1]} ${part.occurrence} ${deliveryLabels[part.delivery]}`,
+      )
+      .join(" · ")}`;
+    panel.append(delivery);
+  }
   if (job.status === "running" || job.status === "queued") {
     const progress = document.createElement("progress");
     progress.max = 100;
@@ -475,6 +611,10 @@ function renderCurrent(job) {
           style,
           lyrics,
           abc,
+          section_deliveries: selectedDeliveries(
+            lyrics,
+            deliveryMap(job.section_deliveries),
+          ),
           parent_id: job.id,
           instrumental: job.instrumental,
           seconds: job.seconds,
@@ -566,6 +706,15 @@ byId("toggle-edit-source").addEventListener("click", () => {
   editSourceVisible = !editSourceVisible;
   syncFields();
 });
+for (const [tag, [, label]] of Object.entries(sectionTags)) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "button section-tag";
+  button.textContent = label;
+  button.addEventListener("click", () => insertSectionTag(tag));
+  byId("section-tags").append(button);
+}
+byId("lyrics").addEventListener("input", renderSectionDeliveries);
 byId("abc").addEventListener("input", drawNotation);
 byId("apply-note").addEventListener("click", () => {
   const input = byId("abc");
@@ -595,6 +744,8 @@ byId("song-form").addEventListener("submit", async (event) => {
   const mode = tab === "create" ? source : tab;
   const style = byId("style").value.trim();
   const instruction = byId("instruction").value.trim();
+  const lyrics =
+    mode === "edit" || !byId("lyrics-field").hidden ? byId("lyrics").value : "";
   const job = {
     mode,
     style,
@@ -604,10 +755,8 @@ byId("song-form").addEventListener("submit", async (event) => {
       ? relatedTitle(draftParent, mode === "edit" ? "AI編集" : "再生成")
       : (mode === "edit" ? instruction : style).slice(0, 36),
     parent_id: draftParent?.id || "",
-    lyrics:
-      mode === "edit" || !byId("lyrics-field").hidden
-        ? byId("lyrics").value
-        : "",
+    lyrics,
+    section_deliveries: instrumental ? [] : selectedDeliveries(lyrics),
     chords: mode === "chords" ? byId("chords").value : "",
     abc: mode === "abc" || mode === "edit" ? byId("abc").value : "",
     seconds: Number(byId("seconds").value),

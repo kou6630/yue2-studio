@@ -579,6 +579,44 @@ textarea::placeholder {
   font-family: Consolas, monospace;
   font-size: 15px;
 }
+.section-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+.section-tags .section-tag {
+  min-height: 44px;
+  padding: 7px 10px;
+  font-size: 14px;
+}
+.section-delivery {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #271b32;
+}
+.section-delivery summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  color: #f4c2e7;
+  cursor: pointer;
+}
+.section-voices {
+  display: grid;
+  gap: 7px;
+  padding: 0 10px 10px;
+}
+.section-voices label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.section-voices select {
+  min-width: 0;
+}
 .notation {
   background: #f7eef8;
   color: #24162d;
