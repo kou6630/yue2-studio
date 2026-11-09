@@ -14,6 +14,7 @@ let jobs = [];
 let visibleJob = "";
 let playerUrl = "";
 let notationTimer;
+let noteRange = null;
 let refreshing = false;
 
 function message(id, value) {
@@ -178,9 +179,17 @@ function syncFields() {
 
 function drawNotation() {
   clearTimeout(notationTimer);
+  noteRange = null;
+  byId("note-editor").hidden = true;
+  byId("note-hint").hidden = true;
   const notation = byId("notation");
-  const abc = byId("abc").value.trim();
-  if (byId("abc-field").hidden || !abc || !window.ABCJS || !/^K:/m.test(abc)) {
+  const abc = byId("abc").value;
+  if (
+    byId("abc-field").hidden ||
+    !abc.trim() ||
+    !window.ABCJS ||
+    !/^K:/m.test(abc)
+  ) {
     notation.hidden = true;
     notation.replaceChildren();
     return;
@@ -194,7 +203,26 @@ function drawNotation() {
         staffwidth: width,
         paddingtop: 8,
         paddingbottom: 8,
+        add_classes: true,
+        selectTypes: ["note"],
+        clickListener(element) {
+          const { startChar: start, endChar: end } = element;
+          if (
+            element.el_type !== "note" ||
+            !Number.isInteger(start) ||
+            !Number.isInteger(end) ||
+            start < 0 ||
+            end <= start ||
+            end > abc.length
+          )
+            return;
+          noteRange = { start, end, abc };
+          byId("note-token").value = abc.slice(start, end).trim();
+          byId("note-editor").hidden = false;
+          byId("note-hint").hidden = true;
+        },
       });
+      byId("note-hint").hidden = false;
     } catch {
       notation.hidden = true;
     }
@@ -401,6 +429,15 @@ for (const button of tones)
     setTone(button.dataset.tone === "instrumental"),
   );
 byId("abc").addEventListener("input", drawNotation);
+byId("apply-note").addEventListener("click", () => {
+  const input = byId("abc");
+  const token = byId("note-token").value.trim();
+  if (!noteRange || input.value !== noteRange.abc || !token) return;
+  const { start, end } = noteRange;
+  const trailing = input.value.slice(start, end).match(/\s*$/)[0];
+  input.setRangeText(token + trailing, start, end, "select");
+  drawNotation();
+});
 byId("export-abc").addEventListener("click", () => {
   if (byId("abc").value.trim())
     download(

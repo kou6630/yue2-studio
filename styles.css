@@ -587,6 +587,21 @@ textarea::placeholder {
   height: auto;
   stroke-width: 0;
 }
+.notation .abcjs-note {
+  cursor: pointer;
+  pointer-events: bounding-box;
+}
+.note-hint {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.note-editor {
+  margin-top: 10px;
+}
+.note-editor .row > input {
+  min-width: 0;
+}
 .file-control {
   display: flex;
   align-items: center;

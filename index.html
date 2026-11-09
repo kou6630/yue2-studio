@@ -279,6 +279,23 @@
                 placeholder='X:1&#10;M:4/4&#10;L:1/8&#10;K:C&#10;"C"C2 E2 G2 E2 | "G"D2 G2 B2 G2 |'
               ></textarea>
               <div id="notation" class="notation" hidden></div>
+              <p id="note-hint" class="note-hint" hidden>
+                譜面の音符をタップして編集
+              </p>
+              <div id="note-editor" class="note-editor" hidden>
+                <label for="note-token">選択した音符・コード</label>
+                <div class="row">
+                  <input
+                    id="note-token"
+                    class="code"
+                    maxlength="160"
+                    spellcheck="false"
+                  />
+                  <button id="apply-note" class="button" type="button">
+                    反映
+                  </button>
+                </div>
+              </div>
             </div>
             <div id="render-options" class="render-options">
               <div class="field">
